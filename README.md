@@ -9,3 +9,5 @@ Driver outputs DMX using UART2 on GPIO pin 17. Feel free to experiment with othe
 Driver uses pin 4 to change direction of dmx dataflow.
 
 Even if it is an Arduino library, it is possible to use the two source files in IDF projects since it has no dependency on Arduino libraries.
+
+In this fork, it is possible to specify max_channels to use, and lock/release DMX buffer for editing channels prior to syncing.

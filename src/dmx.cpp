@@ -43,12 +43,18 @@ long DMX::last_dmx_packet = 0;
 
 uint8_t DMX::dmx_data[513];
 
+uint16_t DMX::max_channels = 512;
+
 DMX::DMX()
 {
 
 }
 
-void DMX::Initialize(DMXDirection direction)
+void DMX::Initialize(DMXDirection direction) {
+    DMX::Initialize(direction, 512);
+}
+
+void DMX::Initialize(DMXDirection direction, uint16_t max_channels)
 {
     // configure UART for DMX
     uart_config_t uart_config =
@@ -92,12 +98,14 @@ void DMX::Initialize(DMXDirection direction)
         // create receive task
         xTaskCreatePinnedToCore(DMX::uart_event_task, "uart_event_task", 2048, NULL, 1, NULL, DMX_CORE);
     }
+
+    DMX::max_channels = max_channels;
 }
 
 uint8_t DMX::Read(uint16_t channel)
 {
     // restrict acces to dmx array to valid values
-    if(channel < 1 || channel > 512)
+    if(channel < 1 || channel > max_channels)
     {
         return 0;
     }
@@ -116,7 +124,7 @@ uint8_t DMX::Read(uint16_t channel)
 void DMX::ReadAll(uint8_t * data, uint16_t start, size_t size)
 {
     // restrict acces to dmx array to valid values
-    if(start < 1 || start > 512 || start + size > 513)
+    if(start < 1 || start > max_channels || start + size > max_channels + 1)
     {
         return;
     }
@@ -129,10 +137,42 @@ void DMX::ReadAll(uint8_t * data, uint16_t start, size_t size)
 #endif
 }
 
+void DMX::LockBuffer() {
+    #ifndef DMX_IGNORE_THREADSAFETY
+    xSemaphoreTake(sync_dmx, portMAX_DELAY);
+    #endif
+}
+
+void DMX::EditBuffer(uint16_t channel, uint8_t value) {
+    // restrict acces to dmx array to valid values
+    if(channel < 1 || channel > max_channels)
+    {
+        return;
+    }
+
+    dmx_data[channel] = value;
+}
+
+void DMX::EditBufferAll(int8_t * data, uint16_t start, size_t size) {
+    // restrict acces to dmx array to valid values
+    if(start < 1 || start > max_channels || start + size > max_channels + 1)
+    {
+        return;
+    }
+
+    memcpy((uint8_t *)dmx_data + start, data, size);
+}
+
+void DMX::ReleaseBuffer() {
+    #ifndef DMX_IGNORE_THREADSAFETY
+    xSemaphoreGive(sync_dmx);
+    #endif
+}
+
 void DMX::Write(uint16_t channel, uint8_t value)
 {
     // restrict acces to dmx array to valid values
-    if(channel < 1 || channel > 512)
+    if(channel < 1 || channel > max_channels)
     {
         return;
     }
@@ -149,7 +189,7 @@ void DMX::Write(uint16_t channel, uint8_t value)
 void DMX::WriteAll(uint8_t * data, uint16_t start, size_t size)
 {
     // restrict acces to dmx array to valid values
-    if(start < 1 || start > 512 || start + size > 513)
+    if(start < 1 || start > max_channels || start + size > max_channels + 1)
     {
         return;
     }
@@ -201,7 +241,7 @@ void DMX::uart_send_task(void*pvParameters)
         xSemaphoreTake(sync_dmx, portMAX_DELAY);
 #endif
         // transmit the dmx data
-        uart_write_bytes(DMX_UART_NUM, (const char*) dmx_data+1, 512);
+        uart_write_bytes(DMX_UART_NUM, (const char*) dmx_data+1, max_channels);
 #ifndef DMX_IGNORE_THREADSAFETY
         xSemaphoreGive(sync_dmx);
 #endif
@@ -251,7 +291,7 @@ void DMX::uart_event_task(void *pvParameters)
                         // copy received bytes to dmx data array
                         for(int i = 0; i < event.size; i++)
                         {
-                            if(current_rx_addr < 513)
+                            if(current_rx_addr < max_channels + 1)
                             {
                                 dmx_data[current_rx_addr++] = dtmp[i];
                             }

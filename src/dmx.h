@@ -35,9 +35,19 @@ class DMX
     public:
         static void Initialize(DMXDirection direction);     // initialize library
 
+        static void Initialize(DMXDirection direction, uint16_t max_channels);     // initialize library
+
         static uint8_t Read(uint16_t channel);              // returns the dmx value for the givven address (values from 1 to 512)
 
         static void ReadAll(uint8_t * data, uint16_t start, size_t size);   // copies the defined channels from the read buffer
+
+        static void LockBuffer(); // lock buffer for editing
+        
+        static void EditBuffer(uint16_t channel, uint8_t value); // writes the dmx value to the buffer without sending
+
+        static void EditBufferAll(int8_t * data, uint16_t start, size_t size); // copies the defined channels into the write buffer without sending
+
+        static void ReleaseBuffer(); // sends the buffer after editing
 
         static void Write(uint16_t channel, uint8_t value); // writes the dmx value to the buffer
         
@@ -59,6 +69,8 @@ class DMX
         static long last_dmx_packet;                        // timestamp for the last received packet
 
         static uint8_t dmx_data[513];                       // stores the received dmx data
+
+        static uint16_t max_channels;                       // max channels to use            
 
         static void uart_event_task(void *pvParameters);    // event task
 
